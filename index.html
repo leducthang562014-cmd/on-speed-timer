@@ -1,0 +1,161 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ON Speed Timer</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: white;
+  font-family: Arial, sans-serif;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+#screen {
+  width: 100%;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+
+#time {
+  font-size: clamp(65px, 18vw, 130px);
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+}
+
+.red {
+  color: red;
+}
+
+#reset {
+  display: none;
+  margin-top: 35px;
+  padding: 14px 35px;
+  font-size: 20px;
+  font-weight: bold;
+  background: white;
+  border: 2px solid black;
+  border-radius: 10px;
+}
+
+#hint {
+  position: absolute;
+  bottom: 35px;
+  color: #aaa;
+  font-size: 13px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="screen">
+  <div id="time">ON</div>
+  <button id="reset">RESET</button>
+  <div id="hint">NHẤN ĐỂ BẮT ĐẦU</div>
+</div>
+
+<script>
+const screen = document.getElementById("screen");
+const time = document.getElementById("time");
+const reset = document.getElementById("reset");
+const hint = document.getElementById("hint");
+
+let state = "idle";
+let timer;
+let startTime;
+
+function format(ms) {
+  const m = Math.floor(ms / 60000);
+  const s = Math.floor(ms % 60000 / 1000);
+  const cs = Math.floor(ms % 1000 / 10);
+
+  return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}.${String(cs).padStart(2,"0")}`;
+}
+
+function startCountdown() {
+  state = "countdown";
+  const start = Date.now();
+
+  time.className = "red";
+  hint.textContent = "NHẤN ĐỂ BẮT ĐẦU NGAY";
+
+  timer = setInterval(() => {
+    const remaining = 15000 - (Date.now() - start);
+
+    if (remaining <= 0) {
+      startRunning();
+    } else {
+      time.textContent = Math.ceil(remaining / 1000);
+    }
+  }, 30);
+}
+
+function startRunning() {
+  clearInterval(timer);
+  state = "running";
+  startTime = Date.now();
+
+  time.className = "";
+  time.textContent = "00:00.00";
+  hint.textContent = "NHẤN ĐỂ DỪNG";
+
+  timer = setInterval(() => {
+    const elapsed = Date.now() - startTime;
+
+    if (elapsed >= 3600000) {
+      time.textContent = "60:00.00";
+      stopRunning();
+    } else {
+      time.textContent = format(elapsed);
+    }
+  }, 10);
+}
+
+function stopRunning() {
+  clearInterval(timer);
+  state = "stopped";
+  reset.style.display = "block";
+  hint.textContent = "ĐÃ DỪNG";
+}
+
+screen.addEventListener("click", (e) => {
+  if (e.target === reset) return;
+
+  if (state === "idle") {
+    startCountdown();
+  } else if (state === "countdown") {
+    startRunning();
+  } else if (state === "running") {
+    time.textContent = format(Date.now() - startTime);
+    stopRunning();
+  }
+});
+
+reset.addEventListener("click", (e) => {
+  e.stopPropagation();
+
+  clearInterval(timer);
+  state = "idle";
+
+  time.textContent = "ON";
+  time.className = "";
+  reset.style.display = "none";
+  hint.textContent = "NHẤN ĐỂ BẮT ĐẦU";
+});
+</script>
+
+</body>
+</html>
