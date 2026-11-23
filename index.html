@@ -1,160 +1,361 @@
 
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#fff">
 <title>ON Speed Timer</title>
-
 <style>
-* {
-  box-sizing: border-box;
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;min-height:100%;background:#fff;color:#111;font-family:Arial,sans-serif}
+body{user-select:none;-webkit-user-select:none;touch-action:manipulation}
+button{font:inherit;cursor:pointer}
+
+#splash{
+position:fixed;inset:0;z-index:10;
+display:flex;align-items:center;justify-content:center;
+background:#000
+}
+#splash img{
+width:100%;height:100%;object-fit:contain
 }
 
-body {
-  margin: 0;
-  background: white;
-  font-family: Arial, sans-serif;
-  user-select: none;
-  touch-action: manipulation;
+#app{
+min-height:100dvh;display:flex;
+align-items:center;justify-content:center;
+position:relative;padding:24px
 }
 
-#screen {
-  width: 100%;
-  height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
+#menuBtn{
+position:absolute;top:max(20px,env(safe-area-inset-top));
+right:18px;border:1px solid #ddd;
+border-radius:12px;background:#fff;
+padding:11px 19px;font-size:17px;font-weight:bold
 }
 
-#time {
-  font-size: clamp(65px, 18vw, 130px);
-  font-weight: bold;
-  font-variant-numeric: tabular-nums;
+#timerArea{
+display:flex;flex-direction:column;
+align-items:center;width:100%
 }
 
-.red {
-  color: red;
+#display{
+font-size:clamp(66px,18vw,132px);
+line-height:1.1;font-weight:bold;
+font-variant-numeric:tabular-nums;
+letter-spacing:-3px;text-align:center
+}
+#display.on{color:#19a64a}
+#display.red{color:#e32636}
+
+#hint{
+margin-top:18px;color:#999;
+font-size:13px;letter-spacing:1px;
+text-align:center
 }
 
-#reset {
-  display: none;
-  margin-top: 35px;
-  padding: 14px 35px;
-  font-size: 20px;
-  font-weight: bold;
-  background: white;
-  border: 2px solid black;
-  border-radius: 10px;
+#actions{
+display:none;width:min(520px,100%);
+gap:10px;margin-top:34px
 }
+.action{
+flex:1;min-width:0;padding:15px 5px;
+border:1.5px solid #ddd;border-radius:13px;
+background:#fff;
+font-size:clamp(14px,4vw,18px);
+font-weight:bold
+}
+#plus{color:#111}
+#save{color:#19a64a;border-color:#19a64a}
+#discard{color:#e32636;border-color:#e32636}
 
-#hint {
-  position: absolute;
-  bottom: 35px;
-  color: #aaa;
-  font-size: 13px;
+#menuPanel{
+display:none;position:fixed;z-index:5;inset:0;
+background:#0005;align-items:flex-start;
+justify-content:flex-end;padding:12px
 }
+#menuCard{
+width:min(420px,100%);max-height:85dvh;
+overflow:auto;background:#fff;
+border:1px solid #ddd;border-radius:18px;
+padding:18px;margin-top:58px;
+box-shadow:0 12px 35px #0003
+}
+#menuHeader{
+display:flex;align-items:center;
+justify-content:space-between;
+margin-bottom:15px;font-size:20px;
+font-weight:bold
+}
+#closeMenu{
+border:0;background:transparent;
+color:#e32636;font-size:27px;padding:0 5px
+}
+.record{
+display:flex;align-items:center;
+justify-content:space-between;
+gap:12px;padding:13px 0;
+border-top:1px solid #eee
+}
+.recordTime{
+font-size:20px;font-weight:bold;
+font-variant-numeric:tabular-nums
+}
+.recordMeta{color:#888;font-size:12px;margin-top:4px}
+.delete{
+border:0;background:transparent;
+color:#e32636;font-size:24px;
+font-weight:bold;padding:4px 8px
+}
+#empty{color:#888;text-align:center;padding:28px 5px}
 </style>
 </head>
 
 <body>
 
-<div id="screen">
-  <div id="time">ON</div>
-  <button id="reset">RESET</button>
-  <div id="hint">NHẤN ĐỂ BẮT ĐẦU</div>
+<div id="splash">
+<img src="Screenshot_2026-11-23-10-19-41-24.jpg"
+alt="Ảnh kênh của bạn">
+</div>
+
+<main id="app">
+<button id="menuBtn" type="button">MENU</button>
+
+<section id="timerArea">
+<div id="display" class="on">ON</div>
+<div id="hint">NHẤN ĐỂ BẮT ĐẦU</div>
+
+<div id="actions">
+<button id="plus" class="action" type="button">+ 2s</button>
+<button id="save" class="action" type="button">LƯU</button>
+<button id="discard" class="action" type="button">RESET</button>
+</div>
+</section>
+</main>
+
+<div id="menuPanel">
+<section id="menuCard">
+<div id="menuHeader">
+<span>LỊCH SỬ</span>
+<button id="closeMenu" aria-label="Đóng">×</button>
+</div>
+<div id="records"></div>
+</section>
 </div>
 
 <script>
-const screen = document.getElementById("screen");
-const time = document.getElementById("time");
-const reset = document.getElementById("reset");
-const hint = document.getElementById("hint");
+(()=>{
+const $=id=>document.getElementById(id);
 
-let state = "idle";
-let timer;
-let startTime;
+const splash=$('splash');
+const display=$('display');
+const hint=$('hint');
+const actions=$('actions');
+const panel=$('menuPanel');
+const recordsEl=$('records');
 
-function format(ms) {
-  const m = Math.floor(ms / 60000);
-  const s = Math.floor(ms % 60000 / 1000);
-  const cs = Math.floor(ms % 1000 / 10);
+let state='idle';
+let ticker=null;
+let inspectionStart=0;
+let runStart=0;
+let stoppedMs=0;
+let records=[];
 
-  return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}.${String(cs).padStart(2,"0")}`;
+try{
+records=JSON.parse(
+localStorage.getItem('onSpeedTimerRecords')||'[]'
+);
+}catch(e){}
+
+setTimeout(()=>{
+splash.style.display='none';
+},3000);
+
+function fmt(ms){
+ms=Math.min(Math.max(0,ms),3600000);
+let m=Math.floor(ms/60000);
+let s=Math.floor(ms%60000/1000);
+let cs=Math.floor(ms%1000/10);
+
+return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
 }
 
-function startCountdown() {
-  state = "countdown";
-  const start = Date.now();
-
-  time.className = "red";
-  hint.textContent = "NHẤN ĐỂ BẮT ĐẦU NGAY";
-
-  timer = setInterval(() => {
-    const remaining = 15000 - (Date.now() - start);
-
-    if (remaining <= 0) {
-      startRunning();
-    } else {
-      time.textContent = Math.ceil(remaining / 1000);
-    }
-  }, 30);
+function clear(){
+if(ticker!==null)clearInterval(ticker);
+ticker=null;
 }
 
-function startRunning() {
-  clearInterval(timer);
-  state = "running";
-  startTime = Date.now();
-
-  time.className = "";
-  time.textContent = "00:00.00";
-  hint.textContent = "NHẤN ĐỂ DỪNG";
-
-  timer = setInterval(() => {
-    const elapsed = Date.now() - startTime;
-
-    if (elapsed >= 3600000) {
-      time.textContent = "60:00.00";
-      stopRunning();
-    } else {
-      time.textContent = format(elapsed);
-    }
-  }, 10);
+function idle(){
+clear();
+state='idle';
+stoppedMs=0;
+display.textContent='ON';
+display.className='on';
+hint.textContent='NHẤN ĐỂ BẮT ĐẦU';
+actions.style.display='none';
 }
 
-function stopRunning() {
-  clearInterval(timer);
-  state = "stopped";
-  reset.style.display = "block";
-  hint.textContent = "ĐÃ DỪNG";
+function inspect(){
+state='inspection';
+inspectionStart=performance.now();
+display.className='red';
+display.textContent='15';
+hint.textContent='NHẤN ĐỂ BẮT ĐẦU NGAY';
+
+ticker=setInterval(()=>{
+let left=15000-(performance.now()-inspectionStart);
+
+if(left<=0){
+run();
+}else{
+display.textContent=Math.ceil(left/1000);
+}
+},25);
 }
 
-screen.addEventListener("click", (e) => {
-  if (e.target === reset) return;
+function run(){
+clear();
+state='running';
+runStart=performance.now();
+display.className='';
+display.textContent='00:00.00';
+hint.textContent='NHẤN ĐỂ DỪNG';
 
-  if (state === "idle") {
-    startCountdown();
-  } else if (state === "countdown") {
-    startRunning();
-  } else if (state === "running") {
-    time.textContent = format(Date.now() - startTime);
-    stopRunning();
-  }
+ticker=setInterval(()=>{
+let elapsed=performance.now()-runStart;
+
+if(elapsed>=3600000){
+stoppedMs=3600000;
+display.textContent=fmt(stoppedMs);
+stop();
+}else{
+display.textContent=fmt(elapsed);
+}
+},10);
+}
+
+function stop(){
+if(state!=='running')return;
+
+stoppedMs=Math.min(
+performance.now()-runStart,
+3600000
+);
+
+clear();
+state='stopped';
+display.textContent=fmt(stoppedMs);
+hint.textContent='CHỌN CÁCH XỬ LÝ KẾT QUẢ';
+actions.style.display='flex';
+}
+
+function persist(){
+try{
+localStorage.setItem(
+'onSpeedTimerRecords',
+JSON.stringify(records)
+);
+}catch(e){}
+render();
+}
+
+function render(){
+recordsEl.innerHTML='';
+
+if(!records.length){
+let e=document.createElement('div');
+e.id='empty';
+e.textContent='Chưa có kỷ lục nào được lưu.';
+recordsEl.append(e);
+return;
+}
+
+records.forEach((r,i)=>{
+let row=document.createElement('div');
+row.className='record';
+
+let info=document.createElement('div');
+let t=document.createElement('div');
+let meta=document.createElement('div');
+let del=document.createElement('button');
+
+t.className='recordTime';
+t.textContent=fmt(r.ms)+(r.plus?' (+2s)':'');
+
+meta.className='recordMeta';
+meta.textContent=r.date||'';
+
+info.append(t,meta);
+
+del.className='delete';
+del.textContent='×';
+del.type='button';
+del.setAttribute('aria-label','Xóa kỷ lục');
+
+del.onclick=()=>{
+records.splice(i,1);
+persist();
+};
+
+row.append(info,del);
+recordsEl.append(row);
 });
+}
 
-reset.addEventListener("click", (e) => {
-  e.stopPropagation();
-
-  clearInterval(timer);
-  state = "idle";
-
-  time.textContent = "ON";
-  time.className = "";
-  reset.style.display = "none";
-  hint.textContent = "NHẤN ĐỂ BẮT ĐẦU";
+function save(ms,plus){
+records.unshift({
+ms:ms,
+plus:plus,
+date:new Date().toLocaleString('vi-VN')
 });
+persist();
+}
+
+$('plus').onclick=()=>{
+if(state==='stopped'){
+save(Math.min(stoppedMs+2000,3600000),true);
+idle();
+}
+};
+
+$('save').onclick=()=>{
+if(state==='stopped'){
+save(stoppedMs,false);
+idle();
+}
+};
+
+$('discard').onclick=idle;
+
+$('menuBtn').onclick=()=>{
+render();
+panel.style.display='flex';
+};
+
+$('closeMenu').onclick=()=>{
+panel.style.display='none';
+};
+
+panel.onclick=e=>{
+if(e.target===panel){
+panel.style.display='none';
+}
+};
+
+$('app').onclick=e=>{
+if(e.target.closest('button')||state==='stopped')return;
+
+if(state==='idle'){
+inspect();
+}else if(state==='inspection'){
+run();
+}else if(state==='running'){
+stop();
+}
+};
+
+render();
+})();
 </script>
 
 </body>
